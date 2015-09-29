@@ -55,7 +55,7 @@ function munkres(cost_matrix)
         end
         # awesome_print_debug(cost_matrix, mask_array, row_cover, column_cover, step, path_start)
     end
-    return [findfirst(mask_array[i,:] .== 1) for i=1:n]
+    return [findfirst(mask_array[i,:] .== StarMark) for i=1:n]
 end
 
 function awesome_print_debug(cost_matrix, mask_array, row_cover, column_cover, step, location)
@@ -83,7 +83,7 @@ function step_two!(cost_matrix, mask_array, row_cover, column_cover)
     for i=1:size(cost_matrix,1)
         for j=1:size(cost_matrix,2)
             if cost_matrix[i,j] == 0.0 && !row_cover[i] && !column_cover[j]
-                mask_array[i,j] = 1
+                mask_array[i,j] = StarMark
                 row_cover[i] = true
                 column_cover[j] = true
             end
@@ -100,7 +100,7 @@ function step_three!(mask_array, column_cover)
     step = 3
     for i=1:n
         for j=1:m
-            if mask_array[i,j] == 1
+            if mask_array[i,j] == StarMark
                 column_cover[j] = true
             end
         end
@@ -175,7 +175,7 @@ function step_four!(cost_matrix, mask_array, row_cover, column_cover)
 #        if (row == -1)
 #            return 6, Location()
 #        else
-#            mask_array[row, column] = 2
+#            mask_array[row, column] = PrimeMark
 #            starcolumn = find_star_in_row(mask_array, row)
 #            if starcolumn != -1
 #                row_cover[row] = true
@@ -220,15 +220,16 @@ end
 
 function step_six!(cost_matrix,row_cover,column_cover)
     min_value = find_smallest_uncovered(cost_matrix,row_cover,column_cover)
+
     for i = 1:size(cost_matrix,1)
-        if row_cover[i]
+        @inbounds if row_cover[i]
             for j=1:size(cost_matrix,2)
                 @inbounds cost_matrix[i,j] += min_value
             end
         end
     end
     for j = 1:size(cost_matrix,2)
-        if !column_cover[j]
+        @inbounds if !column_cover[j]
             for i=1:size(cost_matrix,1)
                 @inbounds cost_matrix[i,j] -= min_value
             end
@@ -259,7 +260,7 @@ end
 function find_star_in_row(mask_array, row)
     column = -1
     for j = 1:size(mask_array,2)
-        if mask_array[row,j] == 1
+        if mask_array[row,j] == StarMark
             column = j
         end
     end
@@ -273,7 +274,7 @@ Utility functions for step 5
 function find_star_in_column(mask_array, row, active_column, n)
     row = -1
     for i = 1:n
-        if mask_array[i,active_column] == 1
+        if mask_array[i,active_column] == StarMark
             row = i
         end
     end
@@ -283,7 +284,7 @@ end
 function find_prime_in_row(mask_array, active_row, column, m)
     column = -1
     for j = 1:m
-        if mask_array[active_row,j] == 2
+        if mask_array[active_row,j] == PrimeMark
             column = j
         end
     end
@@ -292,14 +293,14 @@ end
 
 function augment_path!(path, mask_array)
     for p = 1:length(path)
-        mask_array[path[p].row, path[p].col] = (mask_array[path[p].row, path[p].col] == 1) ? 0 : 1
+        mask_array[path[p].row, path[p].col] = (mask_array[path[p].row, path[p].col] == StarMark) ? 0 : StarMark
     end
 end
 
 function erase_primes!(mask_array)
     for j=1:size(mask_array,2)
         for i=1:size(mask_array,1)
-            if mask_array[i,j] == 2
+            if mask_array[i,j] == PrimeMark
                 mask_array[i,j] = 0
             end
         end
