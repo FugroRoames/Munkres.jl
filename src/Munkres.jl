@@ -2,7 +2,6 @@ module Munkres
 
 export munkres
 
-
 immutable Location
     row::Int
     col::Int
@@ -11,6 +10,9 @@ end
 Location() = Location(-1,-1)
 
 valid(loc::Location) = loc.row > 0 && loc.col > 0
+
+const StarMark=1
+const PrimeMark=2
 
 """
 Julia implementation of the Munkres (Hungarian) Algorithm for optimal assignment, i.e.
@@ -112,24 +114,77 @@ function step_three!(mask_array, column_cover)
     return step
 end
 
+
 function step_four!(cost_matrix, mask_array, row_cover, column_cover)
-    while true
-        location = find_a_zero(cost_matrix, row_cover, column_cover)
-        row = location.row
-        column = location.col
-        if (row == -1)
-            return 6, Location()
-        else
-            mask_array[row, column] = 2
-            if star_in_row(mask_array, row)
-                column = find_star_in_row(mask_array, column, row)
-                row_cover[row] = true
-                column_cover[column] = 0
-            else
-                return 5, Location(row,column)
+    # Find indices of all zeros in the uncovered rows.  Doing this as a prework
+    # step is faster than doing it in the loop below, probably because the
+    # memory traversal order is more cache friendly.
+    zero_locations = [Int[] for i=1:size(cost_matrix,1)]
+    for j = 1:size(cost_matrix,2)
+        for i = 1:size(cost_matrix,1)
+            @inbounds if cost_matrix[i,j] == 0.0
+                push!(zero_locations[i], j)
             end
         end
     end
+
+    #@show sum(cost_matrix .== 0)
+    for row=1:size(cost_matrix,1)
+        if row_cover[row]
+            continue
+        end
+        # Find column of first zero in cost matrix which is uncovered
+        zero_column = 0
+        for j = zero_locations[row]
+            if !column_cover[j]
+                zero_column = j
+            end
+        end
+        if zero_column == 0
+            continue
+        end
+
+        mask_array[row, zero_column] = PrimeMark
+        starcolumn = 0
+        for j = 1:size(mask_array,2)
+            @inbounds if mask_array[row,j] == StarMark
+                starcolumn = j
+                break
+            end
+        end
+        if starcolumn == 0
+            return 5, Location(row,zero_column)
+        end
+
+        row_cover[row] = true
+        column_cover[starcolumn] = false
+    end
+
+    return 6, Location()
+
+#   Alternative version, seems about the same speed.  Above might be better if
+#   we work with the transpose
+
+#    asdf = 0
+#    while true
+#        asdf += 1
+#        @show asdf, sum(!row_cover), sum(!column_cover)
+#        location = find_a_zero(cost_matrix, row_cover, column_cover)
+#        row = location.row
+#        column = location.col
+#        if (row == -1)
+#            return 6, Location()
+#        else
+#            mask_array[row, column] = 2
+#            starcolumn = find_star_in_row(mask_array, row)
+#            if starcolumn != -1
+#                row_cover[row] = true
+#                column_cover[starcolumn] = false
+#            else
+#                return 5, Location(row,column)
+#            end
+#        end
+#    end
 end
 
 
@@ -158,23 +213,28 @@ function step_five!(mask_array, n, m, row_cover, column_cover, path_start)
     augment_path!(path, mask_array)
     row_cover[:] = false
     column_cover[:] = false
-    mask_array = erase_primes(mask_array, n, m)
+    erase_primes!(mask_array)
     return 3
 end
 
+
 function step_six!(cost_matrix,row_cover,column_cover)
     min_value = find_smallest_uncovered(cost_matrix,row_cover,column_cover)
-    for j=1:size(cost_matrix,2)
-        for i=1:size(cost_matrix,1)
-            if row_cover[i] == true
-                cost_matrix[i,j] += min_value
-            end
-            if column_cover[j] == false
-                cost_matrix[i,j] -= min_value
+    for i = 1:size(cost_matrix,1)
+        if row_cover[i]
+            for j=1:size(cost_matrix,2)
+                @inbounds cost_matrix[i,j] += min_value
             end
         end
     end
-    step = 4
+    for j = 1:size(cost_matrix,2)
+        if !column_cover[j]
+            for i=1:size(cost_matrix,1)
+                @inbounds cost_matrix[i,j] -= min_value
+            end
+        end
+    end
+    return 4
 end
 
 
@@ -183,25 +243,20 @@ Utility functions for step 4
 """
 
 function find_a_zero(cost_matrix, row_cover, column_cover)
-    for j = 1:size(cost_matrix,2), i = 1:size(cost_matrix,1)
-        @inbounds if (cost_matrix[i,j] == 0.0) && (!row_cover[i]) && (!column_cover[j])
-            return Location(i,j)
+    uncovered_row_inds = find(!row_cover)
+    for j = 1:size(cost_matrix,2)
+        if !column_cover[j]
+            for i = uncovered_row_inds
+                @inbounds if cost_matrix[i,j] == 0.0
+                    return Location(i,j)
+                end
+            end
         end
     end
     return Location(-1,-1)
 end
 
-function star_in_row(mask_array, row)
-    star = false
-    for j = 1:size(mask_array,2)
-        if mask_array[row,j] == 1
-            star = true
-        end
-    end
-    return star
-end
-
-function find_star_in_row(mask_array, column, row)
+function find_star_in_row(mask_array, row)
     column = -1
     for j = 1:size(mask_array,2)
         if mask_array[row,j] == 1
@@ -241,15 +296,14 @@ function augment_path!(path, mask_array)
     end
 end
 
-function erase_primes(mask_array, n, m)
-    for i=1:n
-        for j=1:m
+function erase_primes!(mask_array)
+    for j=1:size(mask_array,2)
+        for i=1:size(mask_array,1)
             if mask_array[i,j] == 2
                 mask_array[i,j] = 0
             end
         end
     end
-    return mask_array
 end
 
 """
@@ -258,13 +312,12 @@ Utility function for step six
 
 function find_smallest_uncovered(cost_matrix, row_cover, column_cover)
     min_value = Inf
-    for j=1:size(cost_matrix,2)
-        for i=1:size(cost_matrix,1)
-            @inbounds if !row_cover[i] && !column_cover[j]
-                current_value = cost_matrix[i,j]
-                if min_value > cost_matrix[i,j]
-                    min_value = cost_matrix[i,j]
-                end
+    uncovered_row_inds = find(!row_cover);
+    for j = 1:size(cost_matrix,2)
+        @inbounds if !column_cover[j]
+            for i = uncovered_row_inds
+                @inbounds c = cost_matrix[i,j]
+                min_value = ifelse(min_value > c, c, min_value)
             end
         end
     end
