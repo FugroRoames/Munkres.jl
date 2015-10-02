@@ -12,9 +12,9 @@ function brute_force_optima(cost_matrix)
     end
     initial_permuation = 1:n
     best_permuation = 1:n
-    min_cost = Inf
+    min_cost = typemax(eltype(cost_matrix))
     for p in permutations(initial_permuation)
-        current_cost = 0.0
+        current_cost = zero(eltype(cost_matrix))
         for i = 1:n
             current_cost += cost_matrix[initial_permuation[i],p[i]]
         end
@@ -37,6 +37,12 @@ tst = [1 2 3;
 for i=1:10
     tst = rand(8,8)
     @test munkres(tst) == brute_force_optima(tst)
+end
+
+for i=1:10
+    # Exponentially distributed test for pathological floating point truncation
+    tst = 10.^(50*rand(8,8))
+    @test munkres(tst) == brute_force_optima(map(BigFloat, tst))
 end
 
 tst = -eye(10)
