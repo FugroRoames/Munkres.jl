@@ -54,6 +54,13 @@ Output
 """
 function munkres(cost_matrix)
     n,m = size(cost_matrix)
+    flipped = false
+    if n > m
+        #always use more jobs than workers (current implmentation doesn't work in other case, so just transpose)
+        cost_matrix = cost_matrix'
+        flipped = true
+        n,m = size(cost_matrix)
+    end
     row_cover = zeros(Bool,n)
     column_cover = zeros(Bool,m)
     mask_array = zeros(Int8,n,m)
@@ -83,7 +90,11 @@ function munkres(cost_matrix)
         end
         #awesome_print_debug(cost, mask_array, row_cover, column_cover, step, path_start)
     end
-    return [findfirst(mask_array[i,:] .== StarMark) for i=1:n]
+
+    if flipped
+        return [findfirst(mask_array[:,i] .== StarMark) for i=1:size(mask_array,2)]
+    end
+    return [findfirst(mask_array[i,:] .== StarMark) for i=1:size(mask_array,1)]
 end
 
 
