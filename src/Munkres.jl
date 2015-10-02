@@ -26,26 +26,16 @@ function ModifiedCost{T<:Real}(cost_matrix::Matrix{T})
                  zeros(eltype(cost_matrix), size(cost_matrix,2)))
 end
 
-@inline Base.size(cost::ModifiedCost, args...) = size(cost.m, args...)
+Base.size(cost::ModifiedCost, args...) = size(cost.m, args...)
 
-@inline function iszero(cost::ModifiedCost, i, j) 
+Base.eltype(cost::ModifiedCost) = eltype(cost.m)
+
+function iszero(cost::ModifiedCost, i, j)
     @inbounds return cost.m[i,j] == cost.row_offsets[i] + cost.column_offsets[j]
 end
 
-@inline function Base.getindex(cost::ModifiedCost, i, j) 
+function Base.getindex(cost::ModifiedCost, i, j)
     @inbounds return cost.m[i,j] - cost.row_offsets[i] - cost.column_offsets[j]
-end
-
-function find_zeros(cost::ModifiedCost)
-    zero_locations = [Int[] for i=1:size(cost,1)]
-    for j = 1:size(cost,2)
-        for i = 1:size(cost,1)
-            @inbounds if iszero(cost, i, j)
-                push!(zero_locations[i], j)
-            end
-        end
-    end
-    zero_locations
 end
 
 
@@ -56,34 +46,36 @@ allocation of tasks to workers such that one one task is assigned to one worker.
 Based on c# implementation at
 "Munkres' Assignment Algorithm, Modified for Rectangular Matrices",
 http://csclab.murraystate.edu/bob.pilgrim/445/munkres.html
+Input
+    cost_matrix - an nxm real valued matrix of the cost of assigning job m to worker n
+Output
+    p           - a n length vector of assignments, where the ith element of p[i] is the jth
+                  job for optimal assignment
 """
 function munkres(cost_matrix)
     n,m = size(cost_matrix)
     row_cover = zeros(Bool,n)
     column_cover = zeros(Bool,m)
     mask_array = zeros(Int8,n,m)
-    path_start = Location()    
+    path_start = Location()
     cost = ModifiedCost(cost_matrix)
 
-    step_one!(cost)
+    zero_locations = step_one!(cost)
     step_two!(cost, mask_array, row_cover, column_cover)
-
-    zero_locations = find_zeros(cost)   
 
     step = 3
 
     while true
-        # println("step = ",step)
+        #println("step = ",step)
         if step == 3
             step = step_three!(mask_array, column_cover)
         elseif step == 4
             step, path_start = step_four!(cost, mask_array, row_cover, column_cover, zero_locations)
         elseif step == 5
-            step = step_five!(mask_array, n, m, row_cover, column_cover, path_start)
+            step = step_five!(mask_array, row_cover, column_cover, path_start)
             path_start = Location()
         elseif step == 6
             step = step_six!(cost,row_cover,column_cover, zero_locations)
-            #zero_locations = find_zeros(cost)            
         elseif step == 7
             break
         else
@@ -93,6 +85,7 @@ function munkres(cost_matrix)
     end
     return [findfirst(mask_array[i,:] .== StarMark) for i=1:n]
 end
+
 
 function awesome_print_debug(cost, mask_array, row_cover, column_cover, step, location)
     println("cost matrix = ")
@@ -107,10 +100,13 @@ function awesome_print_debug(cost, mask_array, row_cover, column_cover, step, lo
     readline(STDIN)
 end
 
+
 function step_one!(cost)
-    #remove row minimum from cost matrix
+    #remove row minimum from cost matrix and find locations of all zeros
     cost.row_offsets = vec(minimum(cost.m,2))
+    zero_locations = [find(j->iszero(cost,i,j), 1:size(cost,2)) for i=1:size(cost,1)]
 end
+
 
 function step_two!(cost, mask_array, row_cover, column_cover)
     #find a zero in cost matrix and star the zero if there is no other zero in row or column
@@ -127,6 +123,7 @@ function step_two!(cost, mask_array, row_cover, column_cover)
     row_cover[:] = false
     column_cover[:] = false
 end
+
 
 function step_three!(mask_array, column_cover)
     #cover each column with a starred zero. If k (minimum(n,m)) columns are covered the algorithm is done
@@ -145,15 +142,15 @@ function step_three!(mask_array, column_cover)
        step = 7
     else
        step = 4
-    end    
+    end
     return step
 end
+
 
 function step_four!(cost, mask_array, row_cover, column_cover, zero_locations)
     # Find indices of all zeros in the uncovered rows.  Doing this as a prework
     # step is faster than doing it in the loop below, probably because the
     # memory traversal order is more cache friendly.
-    #zero_locations = find_zeros(cost)
 
     for row=1:size(cost,1)
         if row_cover[row]
@@ -190,7 +187,10 @@ function step_four!(cost, mask_array, row_cover, column_cover, zero_locations)
 end
 
 
-function step_five!(mask_array, n, m, row_cover, column_cover, path_start)
+function step_five!(mask_array, row_cover, column_cover, path_start)
+    #Find a series of alternating starred and primed zeros in alternating columns and rows
+    #until it terminates on a primed zero with no star in it's column. Unstar all the starred
+    #zeros, star the primed zeros, erase the primes and uncover all lines.
     @assert valid(path_start)
 
     done = false
@@ -201,14 +201,14 @@ function step_five!(mask_array, n, m, row_cover, column_cover, path_start)
     push!(path, path_start)
 
     while ~done
-        row = find_star_in_column(mask_array, row, path[end].col, n)
+        row = find_star_in_column(mask_array, row, path[end].col)
         if row > -1
             push!(path, Location(row, path[end].col))
         else
             done = true
         end
         if ~done
-            column = find_prime_in_row(mask_array, path[end].row, column, m)
+            column = find_prime_in_row(mask_array, path[end].row, column)
             push!(path, Location(path[end].row, column))
         end
     end
@@ -221,44 +221,45 @@ end
 
 
 function step_six!(cost,row_cover,column_cover, zero_locations)
+    #Subtract the minimum value in the uncovered part of the cost matrix from all uncovered
+    #columns and add it to the covered rows. Note that for efficiency this does not explicitly
+    #occur, we just keep track of where new zeros appear and where zeros disappear and update
+    #the row and column minima.
     min_value, min_locations = find_smallest_uncovered(cost,row_cover,column_cover)
-        
-    #min locations in the uncovered rows become the new zeros    
-    for i=1:length(min_locations)               
+
+    #min locations in the uncovered rows become the new zeros
+    for i=1:length(min_locations)
         if !isempty(min_locations[i])
             for j=1:length(min_locations[i])
                 push!(zero_locations[i],min_locations[i][j])
             end
         end
     end
-    
+
     cost.row_offsets[row_cover] -= min_value
     cost.column_offsets[!column_cover] += min_value
-    
+
     #need to deal with any zeros going away in covered columns and rows
     for i = 1:length(zero_locations)
         if !isempty(zero_locations[i]) && row_cover[i]
             for j=1:length(zero_locations[i])
-                if column_cover[zero_locations[i][j]]                                        
+                if column_cover[zero_locations[i][j]]
                     zero_location = zero_locations[i]
-                    zero_locations[i] = zero_location[zero_location .!= zero_locations[i][j]]                    
+                    zero_locations[i] = zero_location[zero_location .!= zero_locations[i][j]]
                     break
                 end
             end
         end
-    end    
-    
+    end
+
     return 4
 end
 
 
-"""
-Utility functions for step 5
-"""
-
-function find_star_in_column(mask_array, row, active_column, n)
+function find_star_in_column(mask_array, row, active_column)
+    #find the row in which a star occurs for the active column
     row = -1
-    for i = 1:n
+    for i = 1:size(mask_array,1)
         if mask_array[i,active_column] == StarMark
             row = i
         end
@@ -266,9 +267,11 @@ function find_star_in_column(mask_array, row, active_column, n)
     return row
 end
 
-function find_prime_in_row(mask_array, active_row, column, m)
+
+function find_prime_in_row(mask_array, active_row, column)
+    #find the column in which a prime occurs for the active row
     column = -1
-    for j = 1:m
+    for j = 1:size(mask_array,2)
         if mask_array[active_row,j] == PrimeMark
             column = j
         end
@@ -276,13 +279,17 @@ function find_prime_in_row(mask_array, active_row, column, m)
     return column
 end
 
+
 function augment_path!(path, mask_array)
+    #go along the path swapping stars for zeros
     for p = 1:length(path)
         mask_array[path[p].row, path[p].col] = (mask_array[path[p].row, path[p].col] == StarMark) ? 0 : StarMark
     end
 end
 
+
 function erase_primes!(mask_array)
+    #remove all of the primes from the mask_array
     for j=1:size(mask_array,2)
         for i=1:size(mask_array,1)
             if mask_array[i,j] == PrimeMark
@@ -292,29 +299,26 @@ function erase_primes!(mask_array)
     end
 end
 
-"""
-Utility function for step six
-"""
 
 function find_smallest_uncovered(cost, row_cover, column_cover)
-    min_value = Inf
+    #find the locations and value of the minimum of the cost matrix in the uncovered rows and columns
+    min_value = typemax(eltype(cost))
     uncovered_row_inds = find(!row_cover);
-    
-    for j = 1:size(cost,2)
-        if !column_cover[j]
-            for i = uncovered_row_inds
-                @inbounds c = cost[i,j]
-                min_value = ifelse(min_value > c, c, min_value)
-            end
-        end
-    end
-
     min_locations = [Int[] for i=1:size(cost,1)]
     for j = 1:size(cost,2)
         if !column_cover[j]
             for i = uncovered_row_inds
                 @inbounds c = cost[i,j]
-                if c == min_value
+                if c < min_value
+                    #have found a new minimum, so throw away all the previously discovered values and start again
+                    min_value = c
+                    for k=1:length(min_locations)
+                        if !isempty(min_locations[k])
+                            empty!(min_locations[k])
+                        end
+                    end
+                    push!(min_locations[i],j)
+                elseif  c == min_value
                     push!(min_locations[i],j)
                 end
             end
@@ -323,6 +327,5 @@ function find_smallest_uncovered(cost, row_cover, column_cover)
 
     return min_value, min_locations
 end
-
 
 end # module
