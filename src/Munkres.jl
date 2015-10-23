@@ -40,19 +40,25 @@ end
 
 
 """
-Julia implementation of the Munkres (Hungarian) Algorithm for optimal assignment, i.e.
-given an n x m cost matrix for assigning n workers to m jobs, what is the optimal
-allocation of tasks to workers such that one one task is assigned to one worker.
-Based on c# implementation at
-"Munkres' Assignment Algorithm, Modified for Rectangular Matrices",
-http://csclab.murraystate.edu/bob.pilgrim/445/munkres.html
+Munkres (Hungarian) Algorithm for optimal assignment, i.e.  given an NxM cost
+matrix for assigning N workers to M jobs, what is the optimal allocation of
+tasks to workers such that one one task is assigned to one worker.
+
 Input
-    cost_matrix - an nxm real valued matrix of the cost of assigning job m to worker n
+
+  * cost_matrix - an NxM real valued matrix of the cost of assigning job m to worker N
+
 Output
-    p           - a n length vector of assignments, where the ith element of p[i] is the jth
-                  job for optimal assignment
+
+  * p - A vector of length N of assignments, where j = p[i] assigns job j to worker i.
+
 """
 function munkres(cost_matrix)
+    # Inspired by the C# implementation "Munkres' Assignment Algorithm,
+    # Modified for Rectangular Matrices", and Yi Cao's matlab code.  See
+    # http://csclab.murraystate.edu/bob.pilgrim/445/munkres.html
+    # http://mathworks.com/matlabcentral/fileexchange/20328-munkres-assignment-algorithm
+
     n,m = size(cost_matrix)
     flipped = false
     if n > m
