@@ -54,9 +54,10 @@ Output
 
 """
 function munkres(cost_matrix)
-    # Inspired by the C# implementation "Munkres' Assignment Algorithm,
-    # Modified for Rectangular Matrices", and Yi Cao's matlab code.  See
+    # Inspired by Bob Pilgrim's C# tutorial, "Munkres' Assignment Algorithm,
+    # Modified for Rectangular Matrices",
     # http://csclab.murraystate.edu/bob.pilgrim/445/munkres.html
+    # and by and Yi Cao's surprisingly fast matlab version,
     # http://mathworks.com/matlabcentral/fileexchange/20328-munkres-assignment-algorithm
 
     n,m = size(cost_matrix)
