@@ -5,6 +5,7 @@ Julia implementation of the
 for the optimal assignment problem: Given N workers and M jobs, find a minimal
 cost assignment of one job to each worker.
 
+[![Build Status](https://travis-ci.org/FugroRoames/Munkres.jl.svg?branch=master)](https://travis-ci.org/FugroRoames/Munkres.jl)
 
 ## Examples
 
