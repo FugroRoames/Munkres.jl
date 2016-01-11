@@ -14,7 +14,7 @@ A synthetic example with a simple solution.
 ```julia
 # Each worker-job combination has a random cost
 cost = rand(4,4)
-# However, each worker can do a certian job with zero cost
+# However, each worker can do a certain job with zero cost
 best_jobs = [3,4,1,2]
 for (i,j) in enumerate(best_jobs); cost[i,j] = 0; end
 
