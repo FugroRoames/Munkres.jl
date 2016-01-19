@@ -1,5 +1,6 @@
 using Munkres
 using Base.Test
+using Combinatorics # Required for permutations() on 0.5
 
 
 """
