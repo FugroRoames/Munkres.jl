@@ -95,27 +95,12 @@ function munkres(cost_matrix)
         else
             error("Step has gone bonkers")
         end
-        #awesome_print_debug(cost, mask_array, row_cover, column_cover, step, path_start)
     end
 
     if flipped
         return [findfirst(mask_array[:,i] .== StarMark) for i=1:size(mask_array,2)]
     end
     return [findfirst(mask_array[i,:] .== StarMark) for i=1:size(mask_array,1)]
-end
-
-
-function awesome_print_debug(cost, mask_array, row_cover, column_cover, step, location)
-    println("cost matrix = ")
-    @show cost.m
-    println("mask array = ")
-    println(mask_array)
-    println("row cover = ")
-    println(row_cover)
-    println("column cover = ")
-    println(column_cover)
-    println("augmenting path start = $(location.row) $(location.col)")
-    readline(STDIN)
 end
 
 
@@ -247,11 +232,7 @@ function step_six!(cost,row_cover,column_cover, zero_locations)
 
     #min locations in the uncovered rows become the new zeros
     for i=1:length(min_locations)
-        if !isempty(min_locations[i])
-            for j=1:length(min_locations[i])
-                push!(zero_locations[i],min_locations[i][j])
-            end
-        end
+        push!(zero_locations[min_locations[i][1]],min_locations[i][2])
     end
 
     cost.row_offsets[row_cover] -= min_value
@@ -317,32 +298,23 @@ function erase_primes!(mask_array)
     end
 end
 
-
 function find_smallest_uncovered(cost, row_cover, column_cover)
     #find the locations and value of the minimum of the cost matrix in the uncovered rows and columns
     min_value = typemax(eltype(cost))
-    uncovered_row_inds = find(!row_cover);
-    min_locations = [Int[] for i=1:size(cost,1)]
-    for j = 1:size(cost,2)
-        if !column_cover[j]
-            for i = uncovered_row_inds
-                @inbounds c = cost[i,j]
-                if c < min_value
-                    #have found a new minimum, so throw away all the previously discovered values and start again
-                    min_value = c
-                    for k=1:length(min_locations)
-                        if !isempty(min_locations[k])
-                            empty!(min_locations[k])
-                        end
-                    end
-                    push!(min_locations[i],j)
-                elseif  c == min_value
-                    push!(min_locations[i],j)
-                end
-            end
+    uncovered_row_inds = find(!row_cover)
+    uncovered_col_inds = find(!column_cover)
+    min_locations = Tuple{Int, Int}[]
+    for j in uncovered_col_inds, i in uncovered_row_inds
+        @inbounds c = cost[i,j]
+        if c < min_value
+            #have found a new minimum, so throw away all the previously discovered values and start again
+            min_value = c
+            empty!(min_locations)
+            push!(min_locations,(i,j))
+        elseif  c == min_value
+            push!(min_locations,(i,j))
         end
     end
-
     return min_value, min_locations
 end
 
