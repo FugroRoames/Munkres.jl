@@ -103,3 +103,7 @@ tst = [351.0 300.0 662.0 337.0 384.0 935.0 650.0 446.0 57.0 295.0 168.0 398.0 81
 p = [9, 6, 18, 3, 4, 17, 16, 7, 13, 20]
 
 @test munkres(tst) == p
+
+@test_throws ErrorException munkres(fill(NaN, (3,3)))
+
+nothing

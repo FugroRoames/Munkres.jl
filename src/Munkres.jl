@@ -60,6 +60,7 @@ function munkres(cost_matrix)
     # and by and Yi Cao's surprisingly fast matlab version,
     # http://mathworks.com/matlabcentral/fileexchange/20328-munkres-assignment-algorithm
 
+    any(isnan, cost_matrix) && error("cost matrix cannot have NaNs")
     n,m = size(cost_matrix)
     flipped = false
     if n > m
