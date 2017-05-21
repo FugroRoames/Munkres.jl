@@ -201,7 +201,7 @@ function step_five!(mask_array, row_cover, column_cover, path_start)
     row = -1
     column = -1
 
-    path = Array(Location,0)
+    path = Vector{Location}(0)
     push!(path, path_start)
 
     while ~done
@@ -237,7 +237,7 @@ function step_six!(cost,row_cover,column_cover, zero_locations)
     end
 
     cost.row_offsets[row_cover] -= min_value
-    cost.column_offsets[!column_cover] += min_value
+    cost.column_offsets[map(!, column_cover)] += min_value
 
     #need to deal with any zeros going away in covered columns and rows
     for i = 1:length(zero_locations)
@@ -302,8 +302,8 @@ end
 function find_smallest_uncovered(cost, row_cover, column_cover)
     #find the locations and value of the minimum of the cost matrix in the uncovered rows and columns
     min_value = typemax(eltype(cost))
-    uncovered_row_inds = find(!row_cover)
-    uncovered_col_inds = find(!column_cover)
+    uncovered_row_inds = find(map(!, row_cover))
+    uncovered_col_inds = find(map(!, column_cover))
     min_locations = Tuple{Int, Int}[]
     for j in uncovered_col_inds, i in uncovered_row_inds
         @inbounds c = cost[i,j]
