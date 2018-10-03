@@ -2,7 +2,7 @@ module Munkres
 
 export munkres
 
-immutable Location
+struct Location
     row::Int
     col::Int
 end
@@ -14,13 +14,13 @@ valid(loc::Location) = loc.row > 0 && loc.col > 0
 const StarMark=1
 const PrimeMark=2
 
-type ModifiedCost
+mutable struct ModifiedCost
     m::Matrix{Float64}
     row_offsets::Vector{Float64}
     column_offsets::Vector{Float64}
 end
 
-function ModifiedCost{T<:Real}(cost_matrix::Matrix{T})
+function ModifiedCost(cost_matrix::Matrix{T}) where T<:Real
     ModifiedCost(cost_matrix,
                  zeros(eltype(cost_matrix), size(cost_matrix,1)),
                  zeros(eltype(cost_matrix), size(cost_matrix,2)))
@@ -108,7 +108,7 @@ end
 function step_one!(cost)
     #remove row minimum from cost matrix and find locations of all zeros
     cost.row_offsets = vec(minimum(cost.m,2))
-    zero_locations = [find(j->iszero(cost,i,j), 1:size(cost,2)) for i=1:size(cost,1)]
+    zero_locations = [findall(j->iszero(cost,i,j), 1:size(cost,2)) for i=1:size(cost,1)]
 end
 
 
@@ -201,7 +201,7 @@ function step_five!(mask_array, row_cover, column_cover, path_start)
     row = -1
     column = -1
 
-    path = Vector{Location}(0)
+    path = Vector{Location}()
     push!(path, path_start)
 
     while ~done
@@ -302,8 +302,8 @@ end
 function find_smallest_uncovered(cost, row_cover, column_cover)
     #find the locations and value of the minimum of the cost matrix in the uncovered rows and columns
     min_value = typemax(eltype(cost))
-    uncovered_row_inds = find(map(!, row_cover))
-    uncovered_col_inds = find(map(!, column_cover))
+    uncovered_row_inds = findall(map(!, row_cover))
+    uncovered_col_inds = findall(map(!, column_cover))
     min_locations = Tuple{Int, Int}[]
     for j in uncovered_col_inds, i in uncovered_row_inds
         @inbounds c = cost[i,j]

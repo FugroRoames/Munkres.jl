@@ -1,5 +1,5 @@
 using Munkres
-using Base.Test
+using Test
 using Combinatorics # Required for permutations() on 0.5
 
 
@@ -53,12 +53,12 @@ tst = -eye(10)
 
 for i=1:10
     tst = rand(1,10)
-    @test munkres(tst)[1] == indmin(tst)
+    @test munkres(tst)[1] == argmin(tst)
 end
 
 for i=1:10
     tst = rand(10,1)
-    @test findfirst(munkres(tst).==1) == indmin(tst)
+    @test findfirst(munkres(tst).==1) == argmin(tst)
 end
 
 #test against solutions from Yi Cao's matlab code
