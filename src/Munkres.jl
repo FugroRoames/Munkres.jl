@@ -65,7 +65,7 @@ function munkres(cost_matrix)
     flipped = false
     if n > m
         #always use more jobs than workers (current implmentation doesn't work in other case, so just transpose)
-        cost_matrix = cost_matrix'
+        cost_matrix = Array(cost_matrix')
         flipped = true
         n,m = size(cost_matrix)
     end
@@ -107,7 +107,7 @@ end
 
 function step_one!(cost)
     #remove row minimum from cost matrix and find locations of all zeros
-    cost.row_offsets = vec(minimum(cost.m,2))
+    cost.row_offsets = vec(minimum(cost.m, dims=2))
     zero_locations = [findall(j->iszero(cost,i,j), 1:size(cost,2)) for i=1:size(cost,1)]
 end
 
@@ -124,8 +124,8 @@ function step_two!(cost, mask_array, row_cover, column_cover)
             end
         end
     end
-    row_cover[:] = false
-    column_cover[:] = false
+    row_cover[:] .= false
+    column_cover[:] .= false
 end
 
 
@@ -217,8 +217,8 @@ function step_five!(mask_array, row_cover, column_cover, path_start)
         end
     end
     augment_path!(path, mask_array)
-    row_cover[:] = false
-    column_cover[:] = false
+    row_cover[:] .= false
+    column_cover[:] .= false
     erase_primes!(mask_array)
     return 3
 end
@@ -236,8 +236,8 @@ function step_six!(cost,row_cover,column_cover, zero_locations)
         push!(zero_locations[min_locations[i][1]],min_locations[i][2])
     end
 
-    cost.row_offsets[row_cover] -= min_value
-    cost.column_offsets[map(!, column_cover)] += min_value
+    cost.row_offsets[row_cover] .-= min_value
+    cost.column_offsets[map(!, column_cover)] .+= min_value
 
     #need to deal with any zeros going away in covered columns and rows
     for i = 1:length(zero_locations)

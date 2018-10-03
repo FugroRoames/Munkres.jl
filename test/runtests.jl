@@ -1,6 +1,6 @@
 using Munkres
 using Test
-using Combinatorics # Required for permutations() on 0.5
+using Combinatorics, LinearAlgebra # Required for permutations() on 0.5
 
 
 """
@@ -36,29 +36,29 @@ tst = [1 2 3;
 
 
 for i=1:10
-    tst = rand(8,8)
-    @test munkres(tst) == brute_force_optima(tst)
+    tst1 = rand(8,8)
+    @test munkres(tst1) == brute_force_optima(tst1)
 end
 
 for i=1:10
     # Exponentially distributed test for pathological floating point truncation
-    tst = 10.^(50*rand(8,8))
-    @test munkres(tst) == brute_force_optima(map(BigFloat, tst))
+    tst1 = 10 .^(50*rand(8,8))
+    @test munkres(tst1) == brute_force_optima(map(BigFloat, tst1))
 end
 
-tst = -eye(10)
+tst = -Matrix(1.0I, 10, 10)
 @test munkres(tst) == brute_force_optima(tst)
 
 #test non-square behaviour on 1 x n and n x 1 arrays
 
 for i=1:10
-    tst = rand(1,10)
-    @test munkres(tst)[1] == argmin(tst)
+    tst1 = rand(1,10)
+    @test munkres(tst1)[1] == argmin(tst1)[2]
 end
 
 for i=1:10
-    tst = rand(10,1)
-    @test findfirst(munkres(tst).==1) == argmin(tst)
+    tst1 = rand(10,1)
+    @test findfirst(munkres(tst1).==1) == argmin(tst1)[1]
 end
 
 #test against solutions from Yi Cao's matlab code
@@ -85,7 +85,7 @@ tst = [ 678.0 24.0 601.0 34.0 747.0 455.0 871.0 714.0 64.0 547.0
         442.0 59.0 979.0 463.0 161.0 240.0 328.0 949.0 409.0 299.0
         116.0 313.0 820.0 929.0 347.0 958.0 918.0 806.0 999.0 400.0]
 
-p = [9, 2, 0, 4, 0, 7, 0, 0, 1, 0, 6, 0, 0, 0, 3, 5, 8, 10, 0, 0]
+p = [9, 2, nothing, 4, nothing, 7, nothing, nothing, 1, nothing, 6, nothing, nothing, nothing, 3, 5, 8, 10, nothing, nothing]
 
 @test munkres(tst) == p
 
